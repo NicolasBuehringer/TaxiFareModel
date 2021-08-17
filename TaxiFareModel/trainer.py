@@ -8,6 +8,10 @@ from sklearn.pipeline import Pipeline
 from sklearn.compose import ColumnTransformer
 from sklearn.model_selection import train_test_split
 
+from memoized_property import memoized_property
+import mlflow
+from mlflow.tracking import MlflowClient
+
 
 class Trainer():
     def __init__(self, X, y):
@@ -48,8 +52,39 @@ class Trainer():
         self.y_pred = self.pipeline.predict(self.X_test)
 
         self.rmse = compute_rmse(self.y_pred, self.y_test)
-        print(self.rmse)
+
+
         return self.rmse
+
+
+    MLFLOW_URI = "https://mlflow.lewagon.co/"
+    EXPERIMENT_NAME = "[GER] [BER] [nicolasbuehringer] TaxiFareChallenge + 1.0"
+
+    @memoized_property
+    def mlflow_client(self):
+        #self.mlflow_uri = MLFLOW_URI
+        mlflow.set_tracking_uri(self.MLFLOW_URI)
+        return MlflowClient()
+
+    @memoized_property
+    def mlflow_experiment_id(self):
+        self.experiment_name = "[GER] [BER] [nicolasbuehringer] TaxiFareChallenge + v1"
+        try:
+            return self.mlflow_client.create_experiment(self.experiment_name)
+        except BaseException:
+            return self.mlflow_client.get_experiment_by_name(
+                self.experiment_name).experiment_id
+
+    @memoized_property
+    def mlflow_run(self):
+        return self.mlflow_client.create_run(self.mlflow_experiment_id)
+
+    def mlflow_log_param(self, key, value):
+        self.mlflow_client.log_param(self.mlflow_run.info.run_id, key, value)
+
+    def mlflow_log_metric(self, key, value):
+        self.mlflow_client.log_metric(self.mlflow_run.info.run_id, key, value)
+
 
 if __name__ == "__main__":
     # get data
@@ -67,4 +102,9 @@ if __name__ == "__main__":
     trainer.run()
 
     # evaluate
-    trainer.evaluate()
+    #trainer.evaluate()
+
+    rmse = trainer.evaluate()
+
+    trainer.mlflow_log_metric("RMSE", rmse)
+    trainer.mlflow_log_param("Model", "Linear")
