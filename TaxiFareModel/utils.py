@@ -1,6 +1,5 @@
 import numpy as np
 
-# add haversine_distance function
 
 def haversine_vectorized(df,
                          start_lat="pickup_latitude",
